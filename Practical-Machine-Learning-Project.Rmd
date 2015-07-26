@@ -1,0 +1,102 @@
+---
+title: "Practical Machine Learning Project"
+author: "TB"
+date: "Saturday, July 25, 2015"
+output: html_document
+---
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+We'll try to predict the "classe" variable that consists in 5 classes:
+
+A. The subject is lifting weights exactly according to the specification;
+
+B. Throwing the elbow to the front;
+
+C. Lifting the dumbbell only halfway;
+
+D. Lowering the dumbbell only halfway;
+
+E. Throwing the hips to the front.
+
+## Loading libraries and data
+
+we load the packages
+```{r}
+library(caret)
+library(rpart)
+library(plyr)
+```
+
+we load the train and test data set
+```{r}
+data <- read.csv("pml-training.csv")
+submission.test <- read.csv("pml-testing.csv")
+```
+
+## Data preprocessing
+
+The train data set has 19622 observations and 160 variables
+```{r}
+dim(data)
+```
+
+
+First we remove all the variables that are composed of only "NA" entries on the submission test data set.
+```{r}
+data <- data[,colSums(is.na(submission.test))<nrow(submission.test)]
+submission.test <- submission.test[,colSums(is.na(submission.test))<nrow(submission.test)]
+```
+
+Then we remove the variables that are not necessary for out prediction (timestamp, window and observation progressive number). 
+```{r}
+data <- data[,-c(1, 3:7)]
+submission.test <- submission.test[,-c(1, 3:7)]
+```
+
+Now we create the data partitions for cross validation. 60% of it will go to the training set and the rest will be the test set. We also set the seed for reproducibility.
+```{r}
+set.seed(8484)
+inTrain <- createDataPartition(y = data$classe, p = 0.6, list = FALSE)
+data.train <- data[inTrain,]
+data.test <- data[-inTrain,]
+```
+
+## Prediction model
+
+For the prediction we build a model using Random Forest with 5 resampling
+```{r cache=TRUE}
+boot.control <- trainControl(number = 5)
+model_rf <- train(classe ~ ., data = data.train, trControl = boot.control)
+model_rf
+```
+
+Now we test our model on the test set
+```{r}
+pred <- predict(model_rf, data.test)
+confusionMatrix(pred, data.test$classe)
+```
+
+The accuracy is 0.9922.
+
+Last we use our model on the 20 observations of the submission test data set for the project submission
+```{r}
+submission <- predict(model_rf, submission.test)
+submission
+```
